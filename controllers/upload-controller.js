@@ -1,114 +1,7 @@
-const Video = require('../models/Video');
 const User = require('../models/User');
-const { uploadVideoToCloud, uploadImageToCloud } = require('../helpers/uploader')
+const { uploadImageToCloud } = require('../helpers/uploader')
 const { updateUserProfile } = require('../controllers/update-user-profile')
 const cloudinary = require('../config/cloudinary')
-
-const videoUploadController = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: `Please select a file to upload`
-            })
-        }
-
-        const title = req.body.title || '';
-        const description = req.body.description || '';
-        const uploaderId = req.userInfo.userId;
-        const uploaderUserName = req.userInfo.username;
-
-        // Use buffer and original name for cloud upload
-        const startTimeToUpload = Date.now();
-
-        const { url, publicId } = await uploadVideoToCloud(req.file.buffer, req.file.originalname);
-
-        const endTimeToUpload = Date.now();
-        const uploadTime = endTimeToUpload - startTimeToUpload;
-
-        console.log(`Video uploaded to cloud in ${uploadTime / 1000} sec`);
-
-        const newlyUpload = await Video.create({
-            url,
-            publicId,
-            title,
-            description,
-            uploaderId,
-            uploaderUserName
-        })
-
-        return (
-            res.status(201).json({
-                success: true,
-                message: `Video uploaded to cloud`,
-                newlyUpload
-            })
-        )
-
-    } catch (error) {
-        console.error('Video upload error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error uploading video. Please try again.'
-        })
-    }
-}
-
-const getAllVideos = async (req, res) => {
-    try {
-        const videosFromDB = await Video.find()
-        return res.status(200).json({
-            success: true,
-            data: videosFromDB
-        })
-    } catch (error) {
-        console.error(`Error fetching the videos`, error)
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching videos. Please try again.'
-        })
-    }
-}
-
-const deleteVideoById = async (req, res) => {
-    try {
-        const getCurrentIdOfVideoToDelete = req.params.id;
-        const userId = req.userInfo.userId
-
-        const video = await Video.findById(getCurrentIdOfVideoToDelete);
-        if (!video) {
-            return res.status(404).json({
-                success: false,
-                message: 'Video not found'
-            })
-        }
-
-        // check if any other user is trying to delete
-        if (video.uploaderId.toString() !== userId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Only the owner can delete the video !'
-            })
-        }
-
-        // delete the video from cloudinary
-        await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' })
-
-        // delete from mongoDB
-        await Video.findByIdAndDelete(getCurrentIdOfVideoToDelete)
-
-        return res.status(200).json({
-            success: true,
-            message: 'Video delete successfully !'
-        })
-    } catch (error) {
-        console.error(`Error deleting the video`, error)
-        return res.status(500).json({
-            success: false,
-            message: 'Unable to delete the Video, Please try again !'
-        })
-    }
-}
 
 const updateUserProfile_and_Picture = async (req, res) => {
 
@@ -119,7 +12,7 @@ const updateUserProfile_and_Picture = async (req, res) => {
             return updateUserProfile(req, res);
         }
 
-        let { fullname, bio, gender, username } = req.body;
+        let { fullname, bio, gender, username, email } = req.body;
         username = username?.toLowerCase();
         gender = gender?.toLowerCase();
         const userId = req.userInfo.userId;
@@ -132,16 +25,77 @@ const updateUserProfile_and_Picture = async (req, res) => {
             })
         }
 
+        // Username validation functions
+        const userNameContainsSymbols = (username) => {
+            return /[^a-z0-9._]/.test(username);
+        }
+
+        const startsWithNumber = (username) => {
+            return /^[0-9]/.test(username);
+        }
+
+        // Validate username format if username is being updated
         if (username && username !== user.username) {
-            const existingUser = await User.findOne({ username });
-            if (existingUser) {
+            if ((username !== username.toLowerCase()) || (userNameContainsSymbols(username)) || (startsWithNumber(username))) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Username already taken! Please choose another one'
+                    message: 'Invalid username! Please enter a valid username'
                 })
             }
         }
-        
+
+        // Validate fullname length if fullname is being updated
+        if (fullname) {
+            if (fullname.length > 30) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Fullname must be less than 30 characters'
+                })
+            }
+            if (fullname.length < 3) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Fullname must be atleast 3 characters long'
+                })
+            }
+        }
+
+        try {
+            if (username && username !== user.username) {
+                const existingUser = await User.findOne({ username });
+                if (existingUser) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Username already taken! Please choose another one'
+                    })
+                }
+            }
+        } catch (error) {
+            console.error('Error checking username', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error checking username'
+            })
+        }
+
+        try {
+            if (email && email !== user.email) {
+                const existingUser = await User.findOne({ email });
+                if (existingUser) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Email already exists! Please provide another email'
+                    })
+                }
+            }
+        } catch (error) {
+            console.error('Error checking email', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error checking email'
+            })
+        }
+
         //upload new profile photo
         const { url, publicId } = await uploadImageToCloud(req.file.buffer, req.file.originalname);
         newProfilePhotoId = publicId
@@ -152,7 +106,7 @@ const updateUserProfile_and_Picture = async (req, res) => {
         oldProfilePhotoId = user.profilePhotoPublicId
 
         UserProfileData = await User.findByIdAndUpdate(userId, {
-            fullname, bio, gender, username, profilePhotoUrl: url, profilePhotoPublicId: publicId
+            fullname, bio, gender, username, email, profilePhotoUrl: url, profilePhotoPublicId: publicId
         }, { new: true });
 
         if (oldProfilePhotoId) {
@@ -188,4 +142,4 @@ const updateUserProfile_and_Picture = async (req, res) => {
     }
 }
 
-module.exports = { videoUploadController, getAllVideos, deleteVideoById, updateUserProfile_and_Picture }
+module.exports = { updateUserProfile_and_Picture }

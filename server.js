@@ -4,11 +4,10 @@ const connectToDb = require('./database/db')
 const authRoutes = require('./routes/auth-routes')
 const homeRoutes = require('./routes/home-routes')
 const adminRoutes = require('./routes/admin-routes')
-const uploadRoutes = require('./routes/video-upload-routes')
 const userProfile = require('./routes/userProfile-routes')
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Global error handlers
 process.on('uncaughtException', (err) => {
@@ -49,7 +48,6 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/home', homeRoutes)
 app.use('/api', adminRoutes)
-app.use('/api/video', uploadRoutes)
 app.use('/api/user', userProfile)
 
 // Error handling middleware
