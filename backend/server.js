@@ -7,7 +7,7 @@ const adminRoutes = require('./routes/admin-routes')
 const userProfile = require('./routes/userProfile-routes')
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Global error handlers
 process.on('uncaughtException', (err) => {
@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/home', homeRoutes)
 app.use('/api', adminRoutes)
-app.use('/api/user-profile', userProfile)
+app.use('/api/user', userProfile)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

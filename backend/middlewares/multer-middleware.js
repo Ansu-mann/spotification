@@ -3,7 +3,6 @@ const multer = require('multer')
 // Use memory storage for cloud deployment
 const storage = multer.memoryStorage()
 
-// Adding file filter function
 const imageFileFilter = (req, file, cb) => {
     if(file.mimetype.startsWith('image')){
         cb(null, true)
@@ -20,4 +19,4 @@ const imageUpload = multer({
     }
 }).single('image')
 
-module.exports = { imageUpload }
+module.exports = { imageUpload}

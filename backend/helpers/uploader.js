@@ -1,7 +1,7 @@
 const cloudinary = require('../config/cloudinary')
 
 const uploadImageToCloud = async (fileBuffer, originalName) => {
-    try{
+    try {
         return new Promise((resolve, reject) => {
             cloudinary.uploader.upload_stream(
                 {
@@ -10,8 +10,8 @@ const uploadImageToCloud = async (fileBuffer, originalName) => {
                 (error, result) => {
                     if (error) {
                         reject(error)
-                    }else {
-                        resolve ({
+                    } else {
+                        resolve({
                             url: result.secure_url,
                             publicId: result.public_id
                         })
@@ -19,7 +19,7 @@ const uploadImageToCloud = async (fileBuffer, originalName) => {
                 }
             ).end(fileBuffer);
         })
-    }catch(error){
+    } catch (error) {
         console.error(`Error uploading to cloud, uploadImageToCloud`, error);
         throw error
     }
