@@ -26,7 +26,7 @@ process.on('unhandledRejection', (err) => {
 });
 
 // Basic health check route
-app.get('/health', (req, res) => {
+app.get('/healthCheck', (req, res) => {
     res.json({ message: 'Server is running!', timestamp: new Date().toISOString() });
 });
 
