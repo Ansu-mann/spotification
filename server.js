@@ -1,10 +1,9 @@
 require('dotenv').config()
 const express = require('express')
+const cron = require('node-cron')
 const connectToDb = require('./database/db')
-const authRoutes = require('./routes/auth-routes')
-const homeRoutes = require('./routes/home-routes')
-const adminRoutes = require('./routes/admin-routes')
-const userProfile = require('./routes/userProfile-routes')
+const spotifyRoutes = require('./routes/spotify-routes')
+const { checkMultiplePlaylists } = require('./services/playlist-polling-service')
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -45,10 +44,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes)
-app.use('/api/home', homeRoutes)
-app.use('/api', adminRoutes)
-app.use('/api/user', userProfile)
+app.use('/api/spotify', spotifyRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -64,6 +60,30 @@ app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
 
+// Start server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
+    
+    // Setup cron job for playlist monitoring
+    if (process.env.MONITORED_PLAYLISTS) {
+        const playlists = process.env.MONITORED_PLAYLISTS.split(',').map(id => id.trim());
+        
+        // Run every 5 minutes: */5 * * * *
+        // Run every hour: 0 * * * *
+        // Run every 30 minutes: */30 * * * *
+        cron.schedule('*/5 * * * *', async () => {
+            console.log('\n🔔 Running scheduled playlist check...');
+            const results = await checkMultiplePlaylists(playlists);
+            
+            const newSongsCount = results.reduce((sum, r) => sum + (r.newSongs?.length || 0), 0);
+            if (newSongsCount > 0) {
+                console.log(`✅ Found ${newSongsCount} new song(s) across all playlists`);
+            } else {
+                console.log('✅ No new songs found');
+            }
+        });
+        
+        console.log(`🎵 Playlist monitoring active for: ${playlists.join(', ')}`);
+        console.log('⏰ Checking every 5 minutes');
+    }
 })
