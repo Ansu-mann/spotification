@@ -90,7 +90,7 @@ RECIPIENT_EMAIL=receiver_email@gmail.com
 ```
 ### 4️⃣ Start the server
 ```
-npm start
+npm run start
 ```
 ✅ Cron job will now auto-run every 5 minutes and notify on new songs 🎶
 BASE_URL/api/spotify/playlist/:playlistId/check
